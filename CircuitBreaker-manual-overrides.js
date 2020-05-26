@@ -1,13 +1,18 @@
 class CircuitBreaker {
-  constructor(request) {
-    this.request = request;
-    this.state = "CLOSED";
-    this.failureThreshold = 3;
-    this.failureCount = 0;
-    this.successThreshold = 2;
-    this.successCount = 0;
-    this.timeout = 6000;
-    this.nextAttempt = Date.now();
+  constructor(request, options = {}) {
+    const defaults = {
+      failureThreshold: 3,
+      successThreshold: 2,
+      timeout: 6000
+    };
+
+    Object.assign(this, defaults, options, {
+      request,
+      state: "CLOSED",
+      failureCount: 0,
+      successCount: 0,
+      nextAttempt: Date.now()
+    });
   }
 
   async fire() {
@@ -30,8 +35,7 @@ class CircuitBreaker {
     if (this.state === "HALF") {
       this.successCount++;
       if (this.successCount > this.successThreshold) {
-        this.successCount = 0;
-        this.state = "CLOSED";
+        this.close();
       }
     }
     this.failureCount = 0;
@@ -41,13 +45,25 @@ class CircuitBreaker {
   }
 
   fail(err) {
-    this.failureCount++
+    this.failureCount++;
     if (this.failureCount >= this.failureThreshold) {
-      this.state = "OPEN";
-      this.nextAttempt = Date.now() + this.timeout;
+      this.open();
     }
     this.status("Failure");
     return err;
+  }
+
+  open() {
+    this.state = "OPEN";
+    this.nextAttempt = Date.now() + this.timeout;
+  }
+  close() {
+    this.successCount = 0;
+    this.failureCount = 0;
+    this.state = "CLOSED";
+  }
+  half() {
+    this.state = "HALF";
   }
 
   status(action) {
@@ -60,5 +76,4 @@ class CircuitBreaker {
     });
   }
 }
-
 module.exports = CircuitBreaker;
